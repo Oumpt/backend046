@@ -41,7 +41,7 @@ app.get("/api/data", (req, res) => {
 });
 
 // GET users (protected)
-app.get('/users', verifyToken, async (req, res) => {
+app.get('/users', async (req, res) => {
   try {
     const [rows] = await db.query('SELECT id, firstname, fullname, lastname FROM tbl_users');
     res.json(rows);
@@ -51,7 +51,7 @@ app.get('/users', verifyToken, async (req, res) => {
 });
 
 // GET user by id (protected)
-app.get('/users/:id', verifyToken, async (req, res) => {
+app.get('/users/:id', async (req, res) => {
   const { id } = req.params;
   try {
     const [rows] = await db.query('SELECT id, firstname, fullname, lastname FROM tbl_users WHERE id = ?', [id]);
@@ -86,7 +86,7 @@ app.post('/users', async (req, res) => {
 });
 
 // PUT: อัปเดตข้อมูลผู้ใช้ + เปลี่ยนรหัสผ่านถ้ามีส่งมา
-app.put('/users/:id', async (req, res) => {
+app.put('/users/:id',verifyToken, async (req, res) => {
   const { id } = req.params;
   const {  firstname, fullname, lastname, username, password, status } = req.body;
 
@@ -118,7 +118,7 @@ app.put('/users/:id', async (req, res) => {
 });
 
 //DELETE /users/:id - ลบผู้ใช้
-app.delete('/users/:id', async (req, res) => {
+app.delete('/users/:id',verifyToken, async (req, res) => {
   const { id } = req.params;
   try {
     const [result] = await db.query('DELETE FROM tbl_users WHERE id = ?', [id]);
