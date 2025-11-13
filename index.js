@@ -40,21 +40,21 @@ app.get("/api/data", (req, res) => {
   res.json({ message: "Hello, CORS!" });
 });
 
-// GET users (protected)
+// GET users 
 app.get('/users', async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT id, firstname, fullname, lastname FROM tbl_users');
+    const [rows] = await db.query('SELECT id, firstname, fullname, lastname, username, password, status FROM tbl_users');
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: 'Query failed' });
   }
 });
 
-// GET user by id (protected)
+// GET user by id 
 app.get('/users/:id', async (req, res) => {
   const { id } = req.params;
   try {
-    const [rows] = await db.query('SELECT id, firstname, fullname, lastname FROM tbl_users WHERE id = ?', [id]);
+    const [rows] = await db.query('SELECT id, firstname, fullname, lastname, username, password, status FROM tbl_users WHERE id = ?', [id]);
     if (rows.length === 0) return res.status(404).json({ message: 'User not found' });
     res.json(rows[0]);
   } catch (err) {
