@@ -170,7 +170,7 @@ app.post('/logout', (req, res) => {
 app.get('/profile', verifyToken, async (req, res) => {
   try {
     const [rows] = await db.query(
-      'SELECT id, fullname, username, status FROM view_001 WHERE id = ?',
+      'SELECT * FROM view_001 ',
       [req.user.id]
     );
     if (!rows.length) return res.status(404).json({ message: 'User not found' });
