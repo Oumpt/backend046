@@ -162,7 +162,7 @@ app.post('/login', async (req, res) => {
 
 //ตัวอย่างการทำ Logout
 app.post('/logout', (req, res) => {
-  localStorage.removeItem('token');
+  //localStorage.removeItem('token');
   res.json({ message: "Logged out" });
 });
 
