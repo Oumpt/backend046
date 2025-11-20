@@ -166,6 +166,21 @@ app.post('/logout', (req, res) => {
   res.json({ message: "Logged out" });
 });
 
+// GET: ดึงข้อมูลส่วนตัว
+app.get('/profile', verifyToken, async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      'SELECT id, fullname, username, status FROM view_001 WHERE id = ?',
+      [req.user.id]
+    );
+    if (!rows.length) return res.status(404).json({ message: 'User not found' });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Cannot fetch profile' });
+  }
+});
+
 // เริ่มเซิร์ฟเวอร์
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
