@@ -41,7 +41,7 @@ async function verifyToken(req, res, next) {
         if (err.name === 'TokenExpiredError') {
           return res.status(403).json({ 
             success: false,
-            error: 'Token expired' 
+            error: 'Token expired. Please login again.' 
           });
         }
         return res.status(403).json({ 
@@ -52,7 +52,7 @@ async function verifyToken(req, res, next) {
 
       // 3. ตรวจสอบว่าผู้ใช้ยังมีอยู่ในระบบไหม
       const [users] = await db.query(
-        'SELECT id, status FROM tbl_users WHERE id = ?',
+        'SELECT id, firstname, fullname, lastname, username, status FROM tbl_users WHERE id = ?',
         [decoded.id]
       );
 
@@ -71,7 +71,10 @@ async function verifyToken(req, res, next) {
       }
 
       // 4. บันทึกข้อมูล user ใน request
-      req.user = decoded;
+      req.user = {
+        ...decoded,
+        ...users[0]  // เพิ่มข้อมูลจาก database
+      };
       next();
     });
   } catch (error) {

@@ -5,17 +5,81 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 
-// Helper: สร้าง hash จาก token
 function hashToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
-// POST: เข้าสู่ระบบ (Login)
+/**
+ * @openapi
+ * /api/auth/login:
+ *   post:
+ *     tags: [Authentication]
+ *     summary: Login
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - password
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 example: "johndoe"
+ *               password:
+ *                 type: string
+ *                 example: "123456"
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Login successful"
+ *                 token:
+ *                   type: string
+ *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 1
+ *                     firstname:
+ *                       type: string
+ *                       example: "John"
+ *                     fullname:
+ *                       type: string
+ *                       example: "John Doe"
+ *                     lastname:
+ *                       type: string
+ *                       example: "Doe"
+ *                     username:
+ *                       type: string
+ *                       example: "johndoe"
+ *                     status:
+ *                       type: string
+ *                       example: "active"
+ *       400:
+ *         description: Bad request
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    // ตรวจสอบว่าส่ง username และ password มาไหม
     if (!username || !password) {
       return res.status(400).json({ 
         success: false,
@@ -34,7 +98,6 @@ router.post('/login', async (req, res) => {
 
     const user = rows[0];
 
-    // ตรวจสอบรหัสผ่าน
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ 
@@ -43,7 +106,6 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // สร้าง JWT token
     const token = jwt.sign(
       { 
         id: user.id, 
@@ -53,10 +115,9 @@ router.post('/login', async (req, res) => {
         lastname: user.lastname
       },
       process.env.JWT_SECRET || 'fallback-secret-key',
-      { expiresIn: '24h' }
+      { expiresIn: '1h' }
     );
 
-    // ส่งข้อมูล user กลับด้วย (ไม่รวม password)
     res.json({ 
       success: true,
       message: 'Login successful', 
@@ -79,7 +140,35 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// POST: ออกจากระบบ (Logout)
+/**
+ * @openapi
+ * /api/auth/logout:
+ *   post:
+ *     tags: [Authentication]
+ *     summary: Logout
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Logged out successfully"
+ *       400:
+ *         description: Bad request
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
 router.post('/logout', async (req, res) => {
   try {
     const authHeader = req.headers['authorization'];
@@ -90,9 +179,8 @@ router.post('/logout', async (req, res) => {
       });
     }
 
-    const token = authHeader.substring(7); // ลบ "Bearer "
+    const token = authHeader.substring(7);
     
-    // ถอดรหัส token เพื่อดูข้อมูล
     let decoded;
     try {
       decoded = jwt.decode(token);
@@ -110,10 +198,8 @@ router.post('/logout', async (req, res) => {
       });
     }
 
-    // คำนวณวันหมดอายุ
     const expiresAt = new Date(decoded.exp * 1000);
 
-    // บันทึกลงฐานข้อมูล (เก็บ hash เพื่อความปลอดภัย)
     const tokenHash = hashToken(token);
     
     await db.query(
@@ -121,7 +207,6 @@ router.post('/logout', async (req, res) => {
       [tokenHash, decoded.id, expiresAt]
     );
 
-    // ลบ token เก่าที่หมดอายุแล้ว
     await db.query('DELETE FROM revoked_tokens WHERE expires_at < NOW()');
 
     res.json({ 
