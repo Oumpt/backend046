@@ -10,7 +10,7 @@ app.use(cors({
     'http://localhost:3000',
     'http://localhost:5173',
     'http://localhost:8080',
-    'https://petstore.swagger.io'  // สำหรับ test Swagger
+    'https://petstore.swagger.io'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -25,20 +25,6 @@ app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   next();
 });
-
-// ✅ Load Swagger
-let swaggerSetup;
-try {
-  const { swaggerUi, specs } = require("./swagger");
-  swaggerSetup = swaggerUi.setup(specs, {
-    explorer: true,
-    customSiteTitle: "Backend 046 API Docs"
-  });
-  console.log('✅ Swagger loaded successfully');
-} catch (error) {
-  console.warn('⚠️  Swagger setup failed:', error.message);
-  swaggerSetup = (req, res) => res.send('Swagger docs unavailable');
-}
 
 // ✅ Routes with error handling
 try {
@@ -61,39 +47,7 @@ try {
   }));
 }
 
-// ✅ Swagger endpoint with fallback
-app.get("/api-docs", (req, res, next) => {
-  if (typeof swaggerSetup === 'function') {
-    const { swaggerUi } = require("./swagger");
-    return swaggerUi.serve(req, res, next);
-  }
-  next();
-}, (req, res) => {
-  if (typeof swaggerSetup === 'function') {
-    return swaggerSetup(req, res);
-  }
-  // Fallback HTML
-  res.send(`
-    <!DOCTYPE html>
-    <html>
-    <head><title>Backend 046 API Docs</title></head>
-    <body>
-      <h1>📚 Backend 046 API Documentation</h1>
-      <p>Swagger UI is temporarily unavailable.</p>
-      <h2>Endpoints:</h2>
-      <ul>
-        <li>POST /api/auth/login</li>
-        <li>POST /api/auth/register</li>
-        <li>GET /api/users</li>
-        <li>GET /health</li>
-      </ul>
-      <p>Base URL: https://backend046.vercel.app</p>
-    </body>
-    </html>
-  `);
-});
-
-// ✅ เพิ่ม Swagger JSON endpoint
+// ✅ Swagger JSON endpoint
 app.get("/swagger.json", (req, res) => {
   try {
     const { specs } = require("./swagger");
@@ -106,7 +60,55 @@ app.get("/swagger.json", (req, res) => {
   }
 });
 
-// ✅ เพิ่ม route หลักแบบสั้นๆ
+// ✅ Swagger UI endpoint (ใช้ CDN)
+app.get("/api-docs", (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Backend 046 API Documentation</title>
+      <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui.css" />
+      <style>
+        html { box-sizing: border-box; overflow: -moz-scrollbars-vertical; overflow-y: scroll; }
+        body { margin: 0; background: #fafafa; }
+        .swagger-ui .topbar { display: none; }
+      </style>
+    </head>
+    <body>
+      <div id="swagger-ui"></div>
+      <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-bundle.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-standalone-preset.js"></script>
+      <script>
+        window.onload = function() {
+          const ui = SwaggerUIBundle({
+            url: "/swagger.json",
+            dom_id: '#swagger-ui',
+            deepLinking: true,
+            presets: [
+              SwaggerUIBundle.presets.apis,
+              SwaggerUIStandalonePreset
+            ],
+            plugins: [
+              SwaggerUIBundle.plugins.DownloadUrl
+            ],
+            layout: "StandaloneLayout",
+            defaultModelsExpandDepth: 1,
+            defaultModelExpandDepth: 1,
+            docExpansion: "list",
+            tagsSorter: "alpha",
+            operationsSorter: "alpha"
+          });
+          window.ui = ui;
+        }
+      </script>
+    </body>
+    </html>
+  `);
+});
+
+// ✅ เพิ่ม route หลัก
 app.get('/', (req, res) => {
   res.json({
     message: "Backend 046 API",
@@ -118,7 +120,8 @@ app.get('/', (req, res) => {
       auth: "/api/auth",
       docs: "/api-docs",
       swaggerJson: "/swagger.json",
-      health: "/health"
+      health: "/health",
+      dbCheck: "/db-check"
     },
     note: process.env.NODE_ENV === 'production' ? 
       "Production deployment" : "Development mode"
@@ -160,7 +163,15 @@ app.use((req, res) => {
     success: false,
     error: 'Endpoint not found',
     path: req.path,
-    available: ['/', '/health', '/api-docs', '/swagger.json']
+    availableEndpoints: [
+      { path: '/', method: 'GET', description: 'API status' },
+      { path: '/api-docs', method: 'GET', description: 'API documentation' },
+      { path: '/health', method: 'GET', description: 'Health check' },
+      { path: '/db-check', method: 'GET', description: 'Database status' },
+      { path: '/api/auth/login', method: 'POST', description: 'User login' },
+      { path: '/api/auth/register', method: 'POST', description: 'User registration' },
+      { path: '/api/users', method: 'GET', description: 'Get all users' }
+    ]
   });
 });
 
@@ -187,7 +198,8 @@ app.listen(PORT, () => {
   console.log('='.repeat(50));
   console.log(`🔗 URL: ${url}`);
   console.log(`📚 Docs: ${url}/api-docs`);
+  console.log(`📊 Swagger spec: ${url}/swagger.json`);
   console.log(`⚙️  Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🐳 Database: ${process.env.DB_HOST || 'not configured'}`);
+  console.log(`🗄️  Database: ${process.env.DB_HOST || 'not configured'}`);
   console.log('='.repeat(50));
 });
