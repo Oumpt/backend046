@@ -6,11 +6,15 @@ const options = {
   definition: {
     openapi: "3.0.0",
     info: {
-      title: "BackEnd API",
+      title: "Backend 046 API",
       version: "1.0.0",
       description: "API สำหรับจัดการผู้ใช้และระบบ Authentication"
     },
     servers: [
+      {
+        url: "https://backend046.vercel.app",  // ✅ เพิ่ม Vercel URL
+        description: "Production server"
+      },
       {
         url: "http://localhost:3000",
         description: "Local server"
