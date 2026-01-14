@@ -3,10 +3,10 @@ const express = require('express');
 const cors = require('cors');
 const app = express();
 
-// ✅ CORS Configuration - อนุญาตเฉพาะ Domain ที่กำหนด
+// ✅ CORS Configuration
 app.use(cors({
   origin: [
-    'https://frontend046.vercel.app', // ✅ เพิ่ม URL หน้าบ้านของนายที่นี่
+    'https://frontend046.vercel.app',
     'https://backend046.vercel.app',
     'http://localhost:3000',
     'http://localhost:5173',
@@ -33,9 +33,7 @@ try {
   console.log('✅ Users route loaded');
 } catch (error) {
   console.warn('⚠️  Users route failed:', error.message);
-  app.use("/api/users", (req, res) => res.status(503).json({ 
-    error: "Users service unavailable" 
-  }));
+  app.use("/api/users", (req, res) => res.status(503).json({ error: "Users service unavailable" }));
 }
 
 try {
@@ -43,9 +41,16 @@ try {
   console.log('✅ Auth route loaded');
 } catch (error) {
   console.warn('⚠️  Auth route failed:', error.message);
-  app.use("/api/auth", (req, res) => res.status(503).json({ 
-    error: "Auth service unavailable" 
-  }));
+  app.use("/api/auth", (req, res) => res.status(503).json({ error: "Auth service unavailable" }));
+}
+
+// ✅ เพิ่มส่วนของ Products Route (สต็อกสินค้า)
+try {
+  app.use("/api/products", require("./routes/products"));
+  console.log('✅ Products route loaded');
+} catch (error) {
+  console.warn('⚠️  Products route failed:', error.message);
+  app.use("/api/products", (req, res) => res.status(503).json({ error: "Products service unavailable" }));
 }
 
 // ✅ Swagger JSON endpoint
@@ -119,6 +124,7 @@ app.get('/', (req, res) => {
     endpoints: {
       users: "/api/users",
       auth: "/api/auth",
+      products: "/api/products", // เพิ่มลิสต์ตรงนี้ให้ด้วย
       docs: "/api-docs",
       swaggerJson: "/swagger.json",
       health: "/health",
@@ -171,7 +177,8 @@ app.use((req, res) => {
       { path: '/db-check', method: 'GET', description: 'Database status' },
       { path: '/api/auth/login', method: 'POST', description: 'User login' },
       { path: '/api/auth/register', method: 'POST', description: 'User registration' },
-      { path: '/api/users', method: 'GET', description: 'Get all users' }
+      { path: '/api/users', method: 'GET', description: 'Get all users' },
+      { path: '/api/products', method: 'GET', description: 'Get all products' } // เพิ่มเข้าลิสต์ 404
     ]
   });
 });
@@ -187,7 +194,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   const isVercel = process.env.VERCEL === '1';
   const url = isVercel ? 
