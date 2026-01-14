@@ -3,9 +3,10 @@ const express = require('express');
 const cors = require('cors');
 const app = express();
 
-// ✅ CORS Configuration
+// ✅ CORS Configuration - อนุญาตเฉพาะ Domain ที่กำหนด
 app.use(cors({
   origin: [
+    'https://frontend046.vercel.app', // ✅ เพิ่ม URL หน้าบ้านของนายที่นี่
     'https://backend046.vercel.app',
     'http://localhost:3000',
     'http://localhost:5173',
