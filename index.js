@@ -53,6 +53,15 @@ try {
   app.use("/api/products", (req, res) => res.status(503).json({ error: "Products service unavailable" }));
 }
 
+// ✅ เพิ่มส่วนของ Sales Route (บันทึกยอดขาย POS)
+try {
+  app.use("/api/sales", require("./routes/sales"));
+  console.log('✅ Sales route loaded');
+} catch (error) {
+  console.warn('⚠️  Sales route failed:', error.message);
+  app.use("/api/sales", (req, res) => res.status(503).json({ error: "Sales service unavailable" }));
+}
+
 // ✅ Swagger JSON endpoint
 app.get("/swagger.json", (req, res) => {
   try {
@@ -124,7 +133,8 @@ app.get('/', (req, res) => {
     endpoints: {
       users: "/api/users",
       auth: "/api/auth",
-      products: "/api/products", // เพิ่มลิสต์ตรงนี้ให้ด้วย
+      products: "/api/products", 
+      sales: "/api/sales", // เพิ่มลิสต์ตรงนี้ให้ด้วย
       docs: "/api-docs",
       swaggerJson: "/swagger.json",
       health: "/health",
@@ -178,7 +188,8 @@ app.use((req, res) => {
       { path: '/api/auth/login', method: 'POST', description: 'User login' },
       { path: '/api/auth/register', method: 'POST', description: 'User registration' },
       { path: '/api/users', method: 'GET', description: 'Get all users' },
-      { path: '/api/products', method: 'GET', description: 'Get all products' } // เพิ่มเข้าลิสต์ 404
+      { path: '/api/products', method: 'GET', description: 'Get all products' },
+      { path: '/api/sales', method: 'GET/POST', description: 'Manage sales' } // เพิ่มเข้าลิสต์ 404
     ]
   });
 });
