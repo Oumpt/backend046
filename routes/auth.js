@@ -24,11 +24,21 @@ function hashToken(token) {
  * type: object
  * required: [username, password, firstname, lastname]
  * properties:
- * username: { type: string }
- * password: { type: string }
- * firstname: { type: string }
- * lastname: { type: string }
- * fullname: { type: string }
+ * username:
+ * type: string
+ * password:
+ * type: string
+ * firstname:
+ * type: string
+ * lastname:
+ * type: string
+ * fullname:
+ * type: string
+ * responses:
+ * 201:
+ * description: User registered successfully
+ * 400:
+ * description: Invalid input or user exists
  */
 router.post('/register', async (req, res) => {
   const { username, password, firstname, lastname, fullname } = req.body;
@@ -38,16 +48,13 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Username and password are required' });
     }
 
-    // 1. เช็คว่าชื่อผู้ใช้ซ้ำไหม
     const [existingUser] = await db.query('SELECT id FROM tbl_users WHERE username = ?', [username]);
     if (existingUser.length > 0) {
       return res.status(400).json({ success: false, error: 'Username already exists' });
     }
 
-    // 2. Hash รหัสผ่าน
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 3. บันทึกลงฐานข้อมูล ✅ เพิ่มช่อง role กำหนดเป็น 'staff' โดยอัตโนมัติ
     const [result] = await db.query(
       'INSERT INTO tbl_users (username, password, firstname, lastname, fullname, role, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [username, hashedPassword, firstname, lastname, fullname || `${firstname} ${lastname}`, 'staff', 'active']
@@ -69,7 +76,24 @@ router.post('/register', async (req, res) => {
  * /api/auth/login:
  * post:
  * tags: [Authentication]
- * summary: Login
+ * summary: Login to get JWT Token
+ * requestBody:
+ * required: true
+ * content:
+ * application/json:
+ * schema:
+ * type: object
+ * required: [username, password]
+ * properties:
+ * username:
+ * type: string
+ * password:
+ * type: string
+ * responses:
+ * 200:
+ * description: Login successful
+ * 401:
+ * description: Unauthorized
  */
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
@@ -79,7 +103,6 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Username and password are required' });
     }
 
-    // ดึงข้อมูล User รวมถึงฟิลด์ role และ status
     const [rows] = await db.query('SELECT * FROM tbl_users WHERE username = ?', [username]);
     
     if (rows.length === 0) {
@@ -88,7 +111,6 @@ router.post('/login', async (req, res) => {
 
     const user = rows[0];
 
-    // ตรวจสอบสถานะการใช้งาน
     if (user.status !== 'active') {
       return res.status(403).json({ success: false, error: 'Your account is disabled' });
     }
@@ -98,18 +120,16 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ success: false, error: 'Invalid username or password' });
     }
 
-    // ✅ สร้าง JWT พร้อมใส่ Role เข้าไปใน Payload (ใช้ในการเช็คสิทธิ์หลังบ้าน)
     const token = jwt.sign(
       { 
         id: user.id, 
         username: user.username,
-        role: user.role // 👈 เพิ่มค่า role จาก DB ลงใน Token
+        role: user.role 
       },
       process.env.JWT_SECRET || 'fallback-secret-key',
       { expiresIn: '1h' }
     );
 
-    // ✅ ส่งข้อมูล Role กลับไปให้ Frontend ในก้อน user (ใช้ในการแสดงเมนูหน้าบ้าน)
     res.json({ 
       success: true,
       message: 'Login successful', 
@@ -121,7 +141,7 @@ router.post('/login', async (req, res) => {
         lastname: user.lastname,
         username: user.username,
         status: user.status,
-        role: user.role // 👈 เพิ่มค่า role ส่งกลับไป
+        role: user.role 
       }
     });
   } catch (err) {
@@ -135,7 +155,14 @@ router.post('/login', async (req, res) => {
  * /api/auth/logout:
  * post:
  * tags: [Authentication]
- * summary: Logout
+ * summary: Logout and revoke token
+ * security:
+ * - bearerAuth: []
+ * responses:
+ * 200:
+ * description: Logged out successfully
+ * 400:
+ * description: Invalid token
  */
 router.post('/logout', async (req, res) => {
   try {
@@ -164,7 +191,6 @@ router.post('/logout', async (req, res) => {
       [tokenHash, decoded.id, expiresAt]
     );
 
-    // ล้าง Token ที่หมดอายุแล้วในฐานข้อมูล
     await db.query('DELETE FROM revoked_tokens WHERE expires_at < NOW()');
 
     res.json({ success: true, message: 'Logged out successfully' });

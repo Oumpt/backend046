@@ -44,7 +44,6 @@ try {
   app.use("/api/auth", (req, res) => res.status(503).json({ error: "Auth service unavailable" }));
 }
 
-// ✅ เพิ่มส่วนของ Products Route (สต็อกสินค้า)
 try {
   app.use("/api/products", require("./routes/products"));
   console.log('✅ Products route loaded');
@@ -53,7 +52,6 @@ try {
   app.use("/api/products", (req, res) => res.status(503).json({ error: "Products service unavailable" }));
 }
 
-// ✅ เพิ่มส่วนของ Sales Route (บันทึกยอดขาย POS)
 try {
   app.use("/api/sales", require("./routes/sales"));
   console.log('✅ Sales route loaded');
@@ -63,14 +61,25 @@ try {
 }
 
 // ✅ Swagger JSON endpoint
+// ------------------------------------------------------------------
 app.get("/swagger.json", (req, res) => {
   try {
-    const { specs } = require("./swagger");
-    res.json(specs);
+    // ล้าง cache เพื่อให้อ่านค่า JSDoc ใหม่ทุกครั้งที่แก้ (Optional สำหรับ Dev)
+    delete require.cache[require.resolve("./swagger")]; 
+    const swaggerModule = require("./swagger");
+    
+    if (!swaggerModule || !swaggerModule.specs) {
+      throw new Error("Swagger specs not found in swagger.js");
+    }
+    
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerModule.specs);
   } catch (error) {
-    res.json({
+    console.error("❌ Swagger Spec Error:", error.message);
+    res.status(500).json({
       openapi: "3.0.0",
-      info: { title: "Backend 046 API", version: "1.0.0" }
+      info: { title: "Backend 046 API", version: "1.0.0" },
+      error: "Internal Server Error: " + error.message
     });
   }
 });
@@ -134,7 +143,7 @@ app.get('/', (req, res) => {
       users: "/api/users",
       auth: "/api/auth",
       products: "/api/products", 
-      sales: "/api/sales", // เพิ่มลิสต์ตรงนี้ให้ด้วย
+      sales: "/api/sales",
       docs: "/api-docs",
       swaggerJson: "/swagger.json",
       health: "/health",
@@ -189,7 +198,7 @@ app.use((req, res) => {
       { path: '/api/auth/register', method: 'POST', description: 'User registration' },
       { path: '/api/users', method: 'GET', description: 'Get all users' },
       { path: '/api/products', method: 'GET', description: 'Get all products' },
-      { path: '/api/sales', method: 'GET/POST', description: 'Manage sales' } // เพิ่มเข้าลิสต์ 404
+      { path: '/api/sales', method: 'GET/POST', description: 'Manage sales' }
     ]
   });
 });

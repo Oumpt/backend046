@@ -2,8 +2,47 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db'); 
 const bcrypt = require('bcrypt');
+const verifyToken = require('../middleware/auth'); // แนะนำให้ใช้ middleware ตรวจ token ด้วย
 
-// ✅ 1. บันทึกการขาย (คงเดิม)
+/**
+ * @openapi
+ * tags:
+ * name: Sales
+ * description: ระบบจัดการการขายและรายงาน (POS & Sales Report)
+ */
+
+/**
+ * @openapi
+ * /api/sales:
+ * post:
+ * summary: บันทึกรายการขายใหม่ (Checkout)
+ * tags: [Sales]
+ * requestBody:
+ * required: true
+ * content:
+ * application/json:
+ * schema:
+ * type: object
+ * properties:
+ * total_price:
+ * type: number
+ * items:
+ * type: array
+ * items:
+ * type: object
+ * properties:
+ * id:
+ * type: integer
+ * product_name:
+ * type: string
+ * cartQty:
+ * type: integer
+ * price:
+ * type: number
+ * responses:
+ * 201:
+ * description: บันทึกสำเร็จ
+ */
 router.post('/', async (req, res) => {
     const { total_price, items } = req.body;
     const connection = await db.getConnection();
@@ -23,7 +62,16 @@ router.post('/', async (req, res) => {
     } finally { connection.release(); }
 });
 
-// ✅ 2. ดึงประวัติการขาย (คงเดิม)
+/**
+ * @openapi
+ * /api/sales:
+ * get:
+ * summary: ดึงประวัติการขายทั้งหมด
+ * tags: [Sales]
+ * responses:
+ * 200:
+ * description: รายการประวัติการขาย
+ */
 router.get('/', async (req, res) => {
     try {
         const [rows] = await db.query('SELECT * FROM sales ORDER BY id DESC');
@@ -31,7 +79,22 @@ router.get('/', async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// ✅ 3. ดึงรายละเอียดสินค้าในบิล (คงเดิม)
+/**
+ * @openapi
+ * /api/sales/{id}/items:
+ * get:
+ * summary: ดึงรายละเอียดสินค้าในบิลตาม ID
+ * tags: [Sales]
+ * parameters:
+ * - in: path
+ * name: id
+ * required: true
+ * schema:
+ * type: integer
+ * responses:
+ * 200:
+ * description: รายการสินค้าในบิล
+ */
 router.get('/:id/items', async (req, res) => {
     try {
         const [rows] = await db.query('SELECT * FROM sale_items WHERE sale_id = ?', [req.params.id]);
@@ -39,14 +102,44 @@ router.get('/:id/items', async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// ✅ 4. ลบรายการขาย (เพิ่ม Logic เลือกคืนสต็อกได้)
+/**
+ * @openapi
+ * /api/sales/{id}:
+ * delete:
+ * summary: ลบรายการขาย (ต้องยืนยันตัวตน)
+ * tags: [Sales]
+ * parameters:
+ * - in: path
+ * name: id
+ * required: true
+ * schema:
+ * type: integer
+ * requestBody:
+ * required: true
+ * content:
+ * application/json:
+ * schema:
+ * type: object
+ * properties:
+ * username:
+ * type: string
+ * password:
+ * type: string
+ * restoreStock:
+ * type: boolean
+ * description: คืนสินค้าเข้าคลังหรือไม่
+ * responses:
+ * 200:
+ * description: ลบสำเร็จ
+ * 401:
+ * description: ยืนยันตัวตนไม่ผ่าน
+ */
 router.delete('/:id', async (req, res) => {
-    const { username, password, restoreStock } = req.body; // รับค่า restoreStock มาจาก Frontend
+    const { username, password, restoreStock } = req.body; 
     const saleId = req.params.id;
 
     const connection = await db.getConnection();
     try {
-        // 🔒 1. เช็คสิทธิ์ User ใน tbl_users
         const [users] = await connection.query('SELECT * FROM tbl_users WHERE username = ?', [username]);
         if (users.length === 0) return res.status(401).json({ success: false, message: "ไม่พบชื่อผู้ใช้นี้!" });
 
@@ -55,7 +148,6 @@ router.delete('/:id', async (req, res) => {
 
         await connection.beginTransaction();
 
-        // 🔄 2. คืนสต็อก (เฉพาะถ้า restoreStock เป็น true เท่านั้น)
         if (restoreStock === true) {
             const [items] = await connection.query('SELECT product_id, quantity FROM sale_items WHERE sale_id = ?', [saleId]);
             for (const item of items) {
@@ -63,7 +155,6 @@ router.delete('/:id', async (req, res) => {
             }
         }
 
-        // 🗑️ 3. ลบข้อมูล
         await connection.query('DELETE FROM sale_items WHERE sale_id = ?', [saleId]);
         await connection.query('DELETE FROM sales WHERE id = ?', [saleId]);
 

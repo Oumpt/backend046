@@ -6,16 +6,25 @@ const verifyToken = require('../middleware/auth');
 
 /**
  * @openapi
+ * tags:
+ * name: Users
+ * description: ระบบจัดการข้อมูลผู้ใช้งาน (Admin Only)
+ */
+
+/**
+ * @openapi
  * /api/users:
  * get:
  * tags: [Users]
  * summary: Get all users
  * security:
  * - bearerAuth: []
+ * responses:
+ * 200:
+ * description: Success
  */
 router.get('/', verifyToken, async (req, res) => {
   try {
-    // ✅ ดึง role ออกมาด้วยเพื่อให้หน้าบ้านแสดงผลได้
     const [rows] = await db.query('SELECT id, firstname, fullname, lastname, username, status, role FROM tbl_users');
     res.json(rows);
   } catch (err) {
@@ -29,6 +38,17 @@ router.get('/', verifyToken, async (req, res) => {
  * get:
  * tags: [Users]
  * summary: Get user by ID
+ * security:
+ * - bearerAuth: []
+ * parameters:
+ * - in: path
+ * name: id
+ * required: true
+ * schema:
+ * type: integer
+ * responses:
+ * 200:
+ * description: Success
  */
 router.get('/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
@@ -47,6 +67,35 @@ router.get('/:id', verifyToken, async (req, res) => {
  * post:
  * tags: [Users]
  * summary: Create new user
+ * requestBody:
+ * required: true
+ * content:
+ * application/json:
+ * schema:
+ * type: object
+ * required:
+ * - username
+ * - password
+ * properties:
+ * firstname:
+ * type: string
+ * lastname:
+ * type: string
+ * fullname:
+ * type: string
+ * username:
+ * type: string
+ * password:
+ * type: string
+ * status:
+ * type: string
+ * example: "active"
+ * role:
+ * type: string
+ * example: "staff"
+ * responses:
+ * 200:
+ * description: Created
  */
 router.post('/', async (req, res) => {
   const { firstname, fullname, lastname, username, password, status, role } = req.body;
@@ -78,6 +127,37 @@ router.post('/', async (req, res) => {
  * put:
  * tags: [Users]
  * summary: Update user (Full edit including role)
+ * security:
+ * - bearerAuth: []
+ * parameters:
+ * - in: path
+ * name: id
+ * required: true
+ * schema:
+ * type: integer
+ * requestBody:
+ * content:
+ * application/json:
+ * schema:
+ * type: object
+ * properties:
+ * firstname:
+ * type: string
+ * lastname:
+ * type: string
+ * fullname:
+ * type: string
+ * username:
+ * type: string
+ * password:
+ * type: string
+ * status:
+ * type: string
+ * role:
+ * type: string
+ * responses:
+ * 200:
+ * description: Updated
  */
 router.put('/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
@@ -87,7 +167,6 @@ router.put('/:id', verifyToken, async (req, res) => {
     const [existing] = await db.query('SELECT id FROM tbl_users WHERE id = ?', [id]);
     if (existing.length === 0) return res.status(404).json({ success: false, error: 'User not found' });
 
-    // ✅ เพิ่ม role เข้าไปในชุด UPDATE
     let query = 'UPDATE tbl_users SET firstname = ?, fullname = ?, lastname = ?, username = ?, status = ?, role = ?';
     const params = [firstname, fullname, lastname, username, status, role];
 
@@ -113,6 +192,26 @@ router.put('/:id', verifyToken, async (req, res) => {
  * put:
  * tags: [Users]
  * summary: Update user role only
+ * security:
+ * - bearerAuth: []
+ * parameters:
+ * - in: path
+ * name: id
+ * required: true
+ * schema:
+ * type: integer
+ * requestBody:
+ * content:
+ * application/json:
+ * schema:
+ * type: object
+ * properties:
+ * role:
+ * type: string
+ * enum: [admin, staff]
+ * responses:
+ * 200:
+ * description: Success
  */
 router.put('/:id/role', verifyToken, async (req, res) => {
   const { id } = req.params;
@@ -138,6 +237,17 @@ router.put('/:id/role', verifyToken, async (req, res) => {
  * delete:
  * tags: [Users]
  * summary: Delete user
+ * security:
+ * - bearerAuth: []
+ * parameters:
+ * - in: path
+ * name: id
+ * required: true
+ * schema:
+ * type: integer
+ * responses:
+ * 200:
+ * description: Deleted
  */
 router.delete('/:id', verifyToken, async (req, res) => {
   const { id } = req.params;

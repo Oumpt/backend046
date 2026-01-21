@@ -1,13 +1,33 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
-const verifyToken = require('../middleware/auth'); // ✅ 1. นำเข้า Middleware ตรวจกุญแจ
+const verifyToken = require('../middleware/auth');
 
-// ---------------------------------------------------------
-// 🔒 ทุก Route ด้านล่างนี้จะถูกล็อคด้วย verifyToken ทั้งหมด
-// ---------------------------------------------------------
+/**
+ * @openapi
+ * tags:
+ * name: Products
+ * description: ระบบจัดการสต็อกสินค้า (Inventory Management)
+ */
 
-// ✅ 1. GET: ดึงข้อมูล (ต้องมี Token)
+/**
+ * @openapi
+ * /api/products:
+ * get:
+ * summary: ดึงข้อมูลสินค้าทั้งหมด
+ * tags: [Products]
+ * security:
+ * - bearerAuth: []
+ * responses:
+ * 200:
+ * description: รายการสินค้าทั้งหมดในระบบ
+ * content:
+ * application/json:
+ * schema:
+ * type: array
+ * items:
+ * type: object
+ */
 router.get('/', verifyToken, async (req, res) => {
     try {
         const [rows] = await db.query(`
@@ -22,7 +42,47 @@ router.get('/', verifyToken, async (req, res) => {
     }
 });
 
-// ✅ 2. POST: เพิ่มสินค้า (ต้องมี Token)
+/**
+ * @openapi
+ * /api/products:
+ * post:
+ * summary: เพิ่มสินค้าใหม่เข้าสู่ระบบ
+ * tags: [Products]
+ * security:
+ * - bearerAuth: []
+ * requestBody:
+ * required: true
+ * content:
+ * application/json:
+ * schema:
+ * type: object
+ * required:
+ * - product_name
+ * - price
+ * - quantity
+ * properties:
+ * product_name:
+ * type: string
+ * image_url:
+ * type: string
+ * category:
+ * type: string
+ * price:
+ * type: number
+ * quantity:
+ * type: integer
+ * min_stock:
+ * type: integer
+ * entry_date:
+ * type: string
+ * format: date
+ * expiry_date:
+ * type: string
+ * format: date
+ * responses:
+ * 201:
+ * description: เพิ่มสินค้าสำเร็จ
+ */
 router.post('/', verifyToken, async (req, res) => {
     const { product_name, image_url, category, price, quantity, min_stock, entry_date, expiry_date } = req.body;
     try {
@@ -47,7 +107,48 @@ router.post('/', verifyToken, async (req, res) => {
     }
 });
 
-// ✅ 3. PUT: อัปเดตสินค้า (ต้องมี Token)
+/**
+ * @openapi
+ * /api/products/{id}:
+ * put:
+ * summary: อัปเดตข้อมูลสินค้าหรือแก้ไขสต็อก
+ * tags: [Products]
+ * security:
+ * - bearerAuth: []
+ * parameters:
+ * - in: path
+ * name: id
+ * required: true
+ * schema:
+ * type: integer
+ * requestBody:
+ * content:
+ * application/json:
+ * schema:
+ * type: object
+ * properties:
+ * product_name:
+ * type: string
+ * image_url:
+ * type: string
+ * category:
+ * type: string
+ * price:
+ * type: number
+ * quantity:
+ * type: integer
+ * min_stock:
+ * type: integer
+ * entry_date:
+ * type: string
+ * format: date
+ * expiry_date:
+ * type: string
+ * format: date
+ * responses:
+ * 200:
+ * description: อัปเดตสำเร็จ
+ */
 router.put('/:id', verifyToken, async (req, res) => {
     const { id } = req.params;
     const { product_name, image_url, category, price, quantity, min_stock, entry_date, expiry_date } = req.body;
@@ -82,7 +183,24 @@ router.put('/:id', verifyToken, async (req, res) => {
     }
 });
 
-// ✅ 4. DELETE: ลบสินค้า (ต้องมี Token)
+/**
+ * @openapi
+ * /api/products/{id}:
+ * delete:
+ * summary: ลบสินค้าออกจากระบบ
+ * tags: [Products]
+ * security:
+ * - bearerAuth: []
+ * parameters:
+ * - in: path
+ * name: id
+ * required: true
+ * schema:
+ * type: integer
+ * responses:
+ * 200:
+ * description: ลบสินค้าสำเร็จ
+ */
 router.delete('/:id', verifyToken, async (req, res) => {
     const { id } = req.params;
     try {
