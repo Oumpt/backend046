@@ -442,6 +442,182 @@ router.delete('/:id', verifyToken, async (req, res) => {
  *                   type: string
  *                   example: Update role failed
  */
+/**
+ * @openapi
+ * /api/users/{id}:
+ *   put:
+ *     tags: [Users]
+ *     summary: Update user information
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           example: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               firstname:
+ *                 type: string
+ *                 example: John
+ *               lastname:
+ *                 type: string
+ *                 example: Doe
+ *               fullname:
+ *                 type: string
+ *                 example: John Doe
+ *               username:
+ *                 type: string
+ *                 example: john_doe
+ *               password:
+ *                 type: string
+ *                 example: newpassword123
+ *               status:
+ *                 type: string
+ *                 enum: [active, inactive]
+ *                 example: active
+ *               role:
+ *                 type: string
+ *                 enum: [admin, staff]
+ *                 example: staff
+ *     responses:
+ *       200:
+ *         description: User updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: User updated successfully
+ *       400:
+ *         description: Bad request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: Invalid data
+ *       401:
+ *         description: Unauthorized - token required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: Token required
+ *       404:
+ *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: User not found
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: Update failed
+ */
+router.put('/:id', verifyToken, async (req, res) => {
+  const { id } = req.params;
+  const { firstname, lastname, fullname, username, password, status, role } = req.body;
+  try {
+    let updateFields = [];
+    let updateValues = [];
+
+    if (firstname !== undefined) {
+      updateFields.push('firstname = ?');
+      updateValues.push(firstname);
+    }
+    if (lastname !== undefined) {
+      updateFields.push('lastname = ?');
+      updateValues.push(lastname);
+    }
+    if (fullname !== undefined) {
+      updateFields.push('fullname = ?');
+      updateValues.push(fullname);
+    }
+    if (username !== undefined) {
+      // Check if username already exists (excluding current user)
+      const [existing] = await db.query('SELECT id FROM tbl_users WHERE username = ? AND id != ?', [username, id]);
+      if (existing.length > 0) {
+        return res.status(400).json({ success: false, error: 'Username already exists' });
+      }
+      updateFields.push('username = ?');
+      updateValues.push(username);
+    }
+    if (password && password.trim() !== '') {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      updateFields.push('password = ?');
+      updateValues.push(hashedPassword);
+    }
+    if (status !== undefined) {
+      updateFields.push('status = ?');
+      updateValues.push(status);
+    }
+    if (role !== undefined) {
+      if (!['admin', 'staff'].includes(role)) {
+        return res.status(400).json({ success: false, error: 'Invalid role type' });
+      }
+      updateFields.push('role = ?');
+      updateValues.push(role);
+    }
+
+    if (updateFields.length === 0) {
+      return res.status(400).json({ success: false, error: 'No fields to update' });
+    }
+
+    updateValues.push(id);
+    const updateQuery = `UPDATE tbl_users SET ${updateFields.join(', ')} WHERE id = ?`;
+    const [result] = await db.query(updateQuery, updateValues);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    res.json({ success: true, message: 'User updated successfully' });
+  } catch (err) {
+    console.error('Update user error:', err);
+    res.status(500).json({ success: false, error: 'Update failed' });
+  }
+});
+
 router.put('/:id/role', verifyToken, async (req, res) => {
   const { id } = req.params;
   const { role } = req.body;
