@@ -557,6 +557,9 @@ router.delete('/:id', verifyToken, async (req, res) => {
 router.put('/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
   const { firstname, lastname, fullname, username, password, status, role } = req.body;
+  const currentUserId = req.user.id; // From JWT token
+  const currentUserRole = req.user.role;
+
   try {
     let updateFields = [];
     let updateValues = [];
@@ -611,7 +614,24 @@ router.put('/:id', verifyToken, async (req, res) => {
       return res.status(404).json({ success: false, error: 'User not found' });
     }
 
-    res.json({ success: true, message: 'User updated successfully' });
+    // SECURITY: Force logout if role changed
+    if (role !== undefined) {
+      try {
+        // Revoke all existing tokens for this user
+        await db.query('DELETE FROM revoked_tokens WHERE user_id = ?', [id]);
+        await db.query('INSERT INTO revoked_tokens (token_hash, user_id, expires_at) VALUES (?, ?, ?)', 
+          ['role_change_force_logout', id, new Date()]);
+      } catch (err) {
+        console.warn('Failed to revoke tokens for role change:', err.message);
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      message: role !== undefined ? 
+        'User updated successfully. User must login again to access new role.' : 
+        'User updated successfully' 
+    });
   } catch (err) {
     console.error('Update user error:', err);
     res.status(500).json({ success: false, error: 'Update failed' });
@@ -621,13 +641,29 @@ router.put('/:id', verifyToken, async (req, res) => {
 router.put('/:id/role', verifyToken, async (req, res) => {
   const { id } = req.params;
   const { role } = req.body;
+  const currentUserId = req.user.id; // From JWT token
+  
   try {
     if (!['admin', 'staff'].includes(role)) {
       return res.status(400).json({ success: false, error: 'Invalid role type' });
     }
     const [result] = await db.query('UPDATE tbl_users SET role = ? WHERE id = ?', [role, id]);
     if (result.affectedRows === 0) return res.status(404).json({ success: false, error: 'User not found' });
-    res.json({ success: true, message: `Role updated to ${role}` });
+    
+    // SECURITY: Force logout if role changed
+    try {
+      // Revoke all existing tokens for this user
+      await db.query('DELETE FROM revoked_tokens WHERE user_id = ?', [id]);
+      await db.query('INSERT INTO revoked_tokens (token_hash, user_id, expires_at) VALUES (?, ?, ?)', 
+        ['role_change_force_logout', id, new Date()]);
+    } catch (err) {
+      console.warn('Failed to revoke tokens for role change:', err.message);
+    }
+    
+    res.json({ 
+      success: true, 
+      message: `Role updated to ${role}. User must login again to access new role.` 
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: 'Update role failed' });
   }
