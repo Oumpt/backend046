@@ -41,8 +41,8 @@ function hashToken(token) {
  *               role:
  *                 type: string
  *                 enum: [staff, admin]
- *                 default: staff
- *                 example: staff
+ *                 default: admin
+ *                 example: admin
  *     responses:
  *       201:
  *         description: User registered successfully
