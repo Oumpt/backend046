@@ -38,6 +38,11 @@ function hashToken(token) {
  *               fullname:
  *                 type: string
  *                 example: John Doe
+ *               role:
+ *                 type: string
+ *                 enum: [staff, admin]
+ *                 default: staff
+ *                 example: staff
  *     responses:
  *       201:
  *         description: User registered successfully
@@ -51,7 +56,7 @@ function hashToken(token) {
  *                   example: true
  *                 message:
  *                   type: string
- *                   example: User registered successfully as staff
+ *                   example: User registered successfully as admin
  *                 userId:
  *                   type: integer
  *                   example: 1
@@ -243,7 +248,7 @@ function hashToken(token) {
  */
 
 router.post('/register', async (req, res) => {
-  const { username, password, firstname, lastname, fullname } = req.body;
+  const { username, password, firstname, lastname, fullname, role } = req.body;
   try {
     if (!username || !password) {
       return res.status(400).json({ success: false, error: 'Username and password are required' });
@@ -253,13 +258,14 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Username already exists' });
     }
     const hashedPassword = await bcrypt.hash(password, 10);
+    const userRole = role && (role === 'admin' || role === 'staff') ? role : 'staff';
     const [result] = await db.query(
       'INSERT INTO tbl_users (username, password, firstname, lastname, fullname, role, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [username, hashedPassword, firstname, lastname, fullname || `${firstname} ${lastname}`, 'staff', 'active']
+      [username, hashedPassword, firstname, lastname, fullname || `${firstname} ${lastname}`, userRole, 'active']
     );
     res.status(201).json({ 
       success: true, 
-      message: 'User registered successfully as staff',
+      message: `User registered successfully as ${userRole}`,
       userId: result.insertId 
     });
   } catch (err) {
